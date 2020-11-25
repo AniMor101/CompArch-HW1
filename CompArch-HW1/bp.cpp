@@ -5,7 +5,7 @@
 #include <vector>
 #include <math.h>
 #include <bitset>
-#include "bp_api.h"
+#include "bp.h"
 /* 046267 Computer Architecture - Winter 20/21 - HW #1                  */
 /* This file should hold your implementation of the predictor simulator */
 
@@ -52,9 +52,7 @@ private:
         }
         return state;
     }
-    StateMachine(){
-        state=SNT;
-    }
+
 public:
     //constructors:
     StateMachine(State state1){
@@ -76,6 +74,7 @@ class StateMachinesVector{
 private:
     std::vector<StateMachine> stateMachines;
     unsigned size;
+
 public:
     //constructors:
     StateMachinesVector(){}
@@ -102,13 +101,9 @@ class History{
 private:
     uint8_t history;
     unsigned size;
-    History(){ //we dont want it to be called because 1<=size<=8
-        history=0x0;
-        size=0;
-    }
 public:
     //constructor:
-    History(unsigned size1){
+    History(unsigned size1=0){
         history=0x0;
         size=size1;
     }
@@ -122,31 +117,32 @@ public:
     uint8_t updateHistory(bool taken){
         history%=(uint8_t)pow(2,size-1);
         history= (history*2) ;
-        if(taken){
+        /*f(taken){
             history++;
-        }
-        return history;
+        }*/
+        return history+(uint8_t)taken;
     }
 };
 
-class BranchCmd{
+class BranchLine{
 private:
     uint32_t tag;
     uint32_t target;
     bool valid;
-    History history;
-    StateMachinesVector stateMachinesVector;
-    BranchCmd():history(0) {
-        tag=0x0;
-        target=0x0;
-        }
+    History* historyP;
+    StateMachinesVector* stateMachinesVectorP;
+
 public:
     //Constructors:
-    BranchCmd(uint32_t tag1,uint32_t target1,unsigned historySize):history(historySize){
+
+    BranchLine(uint32_t tag1=0x0,uint32_t target1=0x0,bool valid1=false){
         tag=tag1;
         target=target1;
-        valid=false;
-        stateMachinesVector=StateMachinesVector(pow(2,historySize));
+        valid=valid1;
+    }
+    void initHistoryAndStateMachineVect(History* history1,StateMachinesVector* stateMachinesVector1){
+        historyP=history1;
+        stateMachinesVectorP=stateMachinesVector1;
     }
     uint32_t getTag(){
         return tag;
@@ -154,23 +150,28 @@ public:
     uint32_t getTarget(){
         return target;
     }
-    History getHistory(){
-        return history;
+    History getBranchHistory(){
+        return *historyP;
     }
-    bool getValid(){
+    StateMachinesVector getStateMachinesVec(){
+        return *stateMachinesVectorP;
+    }
+    bool isValid(){
         return valid;
     }
 
     History updateBranchHistory(bool taken){
-        return history.updateHistory(taken);
+        return historyP->updateHistory(taken);
     }
     uint32_t updateBranchTarget(uint32_t target1){
         target=target1;
+        return target;
     }
     bool updateValid(bool valid1){
         valid=valid1;
+        return valid;
     }
-    BranchCmd updateBranch(bool taken, uint32_t target1){
+    BranchLine updateBranch(bool taken, uint32_t target1){
         updateBranchHistory(taken);
         updateBranchTarget(target1);
         return *this;
@@ -186,20 +187,20 @@ private:
     bool isGlobalHist;
     bool isGlobalTable;
     int isShare;
-    std::vector<BranchCmd> branchesVect;
+
+    std::vector<BranchLine> branchesVec;
+    std::vector<History> localHistoryVec;
+    std::vector<StateMachinesVector>  localStateMachinesVec;
     History globalHistory;
-    StateMachine globalStateMachine;
-    StateMachinesVector stateMachineVec;
+    StateMachinesVector globalStateMachineVec;
+
     unsigned branchesCounter;
     unsigned missPredictedCounter;
-
-    BTB()=default;
-
 public:
     //constructors:
+    BTB()=default;
     BTB(unsigned btbSize1,unsigned historySize1,unsigned tagSize1,unsigned fsmState1
-        ,bool isGlobalHist1,bool isGlobalTable1,int isShare1):globalHistory(historySize1)
-        ,globalStateMachine((State)fsmState1){
+        ,bool isGlobalHist1,bool isGlobalTable1,int isShare1){
         btbSize=btbSize1;
         historySize=historySize1;
         tagSize=tagSize1;
@@ -207,14 +208,66 @@ public:
         isGlobalHist=isGlobalHist1;
         isGlobalTable=isGlobalTable1;
         isShare=isShare1;
-        //branchesVect=std::vector<BranchCmd>(btbSize);
+        branchesCounter=0;
+        missPredictedCounter=0;
 
+        if(isGlobalHist){
+            globalHistory=History(historySize);
+        }else{
+            localHistoryVec=std::vector<History>(btbSize,History(historySize));
+        }
+        if(isGlobalTable){
+            globalStateMachineVec=StateMachinesVector(std::pow(2,historySize),(State)fsmState);
+        }else{
+            localStateMachinesVec=std::vector<StateMachinesVector>(btbSize
+                    ,StateMachinesVector(std::pow(2,historySize),(State)fsmState));
+        }
+        branchesVec=std::vector<BranchLine>(btbSize);
 
+        for(int i=0 ; i<btbSize ;i++){
+            History* hist;
+            if(isGlobalTable){
+                hist=&globalHistory;
+            }else{
+                hist=&localHistoryVec[i];
+            }
+            StateMachinesVector* statesTable;
+            if(isGlobalTable){
+                statesTable=&globalStateMachineVec;
+            }else{
+                statesTable=&localStateMachinesVec[i];
+            }
+            branchesVec[i].initHistoryAndStateMachineVect(hist,statesTable);
+        }
+    }
+
+    unsigned getIndexFromPc(uint32_t pc){
+        return ((pc)%(4*btbSize))/4;
+    }
+    uint32_t getTagFromPc(uint32_t pc){
+        return (uint32_t)((pc)/(4*btbSize))%(uint32_t)(pow(2,tagSize));
+    }
+    bool predict(uint32_t pc, uint32_t *dst){
+        unsigned index= getIndexFromPc(pc);
+        uint32_t tag=getTagFromPc(pc);
+
+        BranchLine branchLine=branchesVec[index];
+        if(branchLine.getTag()==tag && branchLine.isValid()){
+            uint32_t target=branchLine.getTarget();
+            uint8_t history= branchLine.getBranchHistory().getHistory();
+            State branchState=branchLine.getStateMachinesVec().getStateAtIndex(history);
+            if (branchState==ST || branchState==WT){
+                *dst=target;
+                return true;
+            }
+        }
+        *dst=pc+4;
+        return false;
     }
 };
 
 //branch main
-int main4() {
+int main() {
     std::cout << "Hello, World! 1 " << std::endl;
     StateMachine machine =StateMachine(SNT);
     std::cout << machine.getState() << std::endl;
@@ -311,7 +364,8 @@ int main1() {
 
 int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState,
             bool isGlobalHist, bool isGlobalTable, int Shared){
-    return -1;
+    BTB btb=BTB(btbSize, historySize, tagSize, fsmState, isGlobalHist, isGlobalTable, Shared);
+    return 0;
 }
 
 bool BP_predict(uint32_t pc, uint32_t *dst){
