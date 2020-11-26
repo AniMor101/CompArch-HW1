@@ -5,7 +5,7 @@
 #include <vector>
 #include <math.h>
 #include <bitset>
-#include "bp.h"
+#include "bp_api.h"
 /* 046267 Computer Architecture - Winter 20/21 - HW #1                  */
 /* This file should hold your implementation of the predictor simulator */
 
@@ -16,9 +16,25 @@ typedef enum {
     ST
 }State;
 
+/*
+enum class ShareMode {
+    not_using_share,
+    using_share_lsb,
+    using_share_mid
+};
+*/
+
+typedef enum {
+    not_using_share,
+    using_share_lsb,
+    using_share_mid
+}ShareMode;
+
 class StateMachine{
 private:
     State state;
+    // Mor
+    State defaultState;
     //privateMethods:
     State updateStateTaken(){
         switch (state) {
@@ -57,6 +73,7 @@ public:
     //constructors:
     StateMachine(State state1){
         state=state1;
+        defaultState = state1;
     }
     //methods
     State getState(){
@@ -68,6 +85,10 @@ public:
         }
         return updateStateNotTaken();
     }
+    // Mor
+    void reset(){
+        state = defaultState;
+    };
 };
 
 class StateMachinesVector{
@@ -77,10 +98,11 @@ private:
 
 public:
     //constructors:
+    // Mor: not needed?
     StateMachinesVector(){}
-    StateMachinesVector(unsigned size){
-        stateMachines= std::vector<StateMachine>(size,SNT);
-    }
+    //StateMachinesVector(unsigned size){
+    //    stateMachines= std::vector<StateMachine>(size,SNT);
+    //}
     StateMachinesVector(unsigned size,State state){
         stateMachines= std::vector<StateMachine>(size,state);
     }
@@ -94,7 +116,12 @@ public:
     State updateStateAtIndex(unsigned  index,bool taken){
         return stateMachines.at(index).updateState(taken);
     }
-
+    // Mor
+    void reset(){
+        for (auto machine : stateMachines) {
+            machine.reset();
+        }
+    };
 };
 
 class History{
@@ -114,14 +141,17 @@ public:
     unsigned getSize(){
         return size;
     }
+    // Mor: history not updated?
     uint8_t updateHistory(bool taken){
         history%=(uint8_t)pow(2,size-1);
         history= (history*2) ;
-        /*f(taken){
-            history++;
-        }*/
-        return history+(uint8_t)taken;
+        history += (uint8_t)taken;
+        return history;
     }
+    // Mor
+    void reset(){
+        history = 0x0;
+    };
 };
 
 class BranchLine{
@@ -139,6 +169,8 @@ public:
         tag=tag1;
         target=target1;
         valid=valid1;
+        historyP = NULL;
+        stateMachinesVectorP = NULL;
     }
     void initHistoryAndStateMachineVect(History* history1,StateMachinesVector* stateMachinesVector1){
         historyP=history1;
@@ -186,7 +218,7 @@ private:
     unsigned fsmState;
     bool isGlobalHist;
     bool isGlobalTable;
-    int isShare;
+    ShareMode shareMode;
 
     std::vector<BranchLine> branchesVec;
     std::vector<History> localHistoryVec;
@@ -207,7 +239,7 @@ public:
         fsmState=fsmState1;
         isGlobalHist=isGlobalHist1;
         isGlobalTable=isGlobalTable1;
-        isShare=isShare1;
+        shareMode = (ShareMode)isShare1;
         branchesCounter=0;
         missPredictedCounter=0;
 
@@ -224,7 +256,7 @@ public:
         }
         branchesVec=std::vector<BranchLine>(btbSize);
 
-        for(int i=0 ; i<btbSize ;i++){
+        for(unsigned i=0 ; i<btbSize ;i++){
             History* hist;
             if(isGlobalTable){
                 hist=&globalHistory;
@@ -247,14 +279,16 @@ public:
     uint32_t getTagFromPc(uint32_t pc){
         return (uint32_t)((pc)/(4*btbSize))%(uint32_t)(pow(2,tagSize));
     }
-    bool predict(uint32_t pc, uint32_t *dst){
+    bool getPrediction(uint32_t pc, uint32_t *dst){
         unsigned index= getIndexFromPc(pc);
         uint32_t tag=getTagFromPc(pc);
 
         BranchLine branchLine=branchesVec[index];
         if(branchLine.getTag()==tag && branchLine.isValid()){
             uint32_t target=branchLine.getTarget();
+            // Mor: pass 1 history?
             uint8_t history= branchLine.getBranchHistory().getHistory();
+            // Mor: need to add share 
             State branchState=branchLine.getStateMachinesVec().getStateAtIndex(history);
             if (branchState==ST || branchState==WT){
                 *dst=target;
@@ -264,8 +298,38 @@ public:
         *dst=pc+4;
         return false;
     }
+
+    uint8_t getHistoryXor(uint8_t history, ShareMode shareMode) {
+        switch (shareMode){
+        case not_using_share:
+            return history;
+            break;
+        case using_share_lsb:
+            shareMode;
+
+
+            break;
+        case using_share_mid:
+            shareMode;
+
+
+            break;
+        default:
+            return history;
+            break;
+        }
+    }
+    
+    void updateBtbOnExe(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst){
+        branchesCounter++;
+        
+        
+        missPredictedCounter;
+        bool prediction = getPrediction(pc, NULL);
+    }
 };
 
+/*
 //branch main
 int main() {
     std::cout << "Hello, World! 1 " << std::endl;
@@ -282,9 +346,6 @@ int main() {
 
     return 0;
 }
-
-
-
 //history main
 int main3() {
     std::cout << "Hello, World! 3 " << std::endl;
@@ -358,21 +419,24 @@ int main1() {
 
     return 0;
 }
+*/
 
-
-
+//Mor
+BTB main_BP;
 
 int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState,
             bool isGlobalHist, bool isGlobalTable, int Shared){
-    BTB btb=BTB(btbSize, historySize, tagSize, fsmState, isGlobalHist, isGlobalTable, Shared);
+    main_BP = BTB(btbSize, historySize, tagSize, fsmState, isGlobalHist, isGlobalTable, Shared);
     return 0;
 }
 
 bool BP_predict(uint32_t pc, uint32_t *dst){
-    return false;
+    
+    return main_BP.getPrediction(pc, dst);
 }
 
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst){
+
     return;
 }
 
