@@ -331,6 +331,22 @@ public:
         missPredictedCounter;
         bool prediction = getPrediction(pc, NULL);
     }
+	
+	
+	
+	
+    //Remah targetSize=30, not 32.
+    //Remah Lshare and Gshare do not affect the size!
+    void getStats(SIM_stats *currStats){
+        currStats->br_num=branchesCounter;
+        currStats->flush_num=missPredictedCounter;
+        unsigned targetSize=30,validSize=1;
+        unsigned stateMachinesVecSize=std::pow(2,historySize+1);
+        unsigned size=btbSize*(tagSize+targetSize+validSize);
+        size+=((isGlobalHist) ? historySize : btbSize*historySize );
+        size+=((isGlobalTable) ? stateMachinesVecSize : btbSize*stateMachinesVecSize);
+        currStats->size=size;
+    }
 };
 
 /*
