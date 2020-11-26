@@ -16,14 +16,6 @@ typedef enum {
     ST
 }State;
 
-/*
-enum class ShareMode {
-    not_using_share,
-    using_share_lsb,
-    using_share_mid
-};
-*/
-
 typedef enum {
     not_using_share,
     using_share_lsb,
@@ -33,7 +25,6 @@ typedef enum {
 class StateMachine{
 private:
     State state;
-    // Mor
     State defaultState;
     //privateMethods:
     State updateStateTaken(){
@@ -188,6 +179,10 @@ public:
     StateMachinesVector getStateMachinesVec(){
         return *stateMachinesVectorP;
     }
+    void updateBranchStateMachine(unsigned index, bool taken) {
+        stateMachinesVectorP->updateStateAtIndex(index, taken);
+    }
+
     bool isValid(){
         return valid;
     }
@@ -199,15 +194,15 @@ public:
         target=target1;
         return target;
     }
+    void updateBranchTag(uint32_t tag1) {
+        tag = tag1;
+    }
+
     bool updateValid(bool valid1){
         valid=valid1;
         return valid;
     }
-    BranchLine updateBranch(bool taken, uint32_t target1){
-        updateBranchHistory(taken);
-        updateBranchTarget(target1);
-        return *this;
-    }
+
 };
 
 class BTB{
@@ -309,13 +304,13 @@ public:
         case using_share_lsb:
             pc >>= 2;
             tmpIndex ^= pc;
-            tmpIndex %= (uint8_t)(pow(2, history.getSize());
+            tmpIndex %= (uint8_t)(pow(2, history.getSize()));
             return tmpIndex;
             break;
         case using_share_mid:
             pc >>= 16;
             tmpIndex ^= pc;
-            tmpIndex %= (uint8_t)(pow(2, history.getSize());
+            tmpIndex %= (uint8_t)(pow(2, history.getSize()));
             return tmpIndex;
             break;
         default:
@@ -326,21 +321,50 @@ public:
     
     void updateBtbOnExe(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst){
         branchesCounter++;
-        
-        
-        missPredictedCounter;
+        unsigned newBranchIndex = getIndexFromPc(pc);
+        uint32_t newBranchTag = getTagFromPc(pc);
+
+        BranchLine &branchLine = branchesVec[newBranchIndex];
+        History oldHistory = branchLine.getBranchHistory();
+        uint32_t oldTag = branchLine.getTag();
+        uint32_t oldTarget = pred_dst;
+        uint8_t oldStateIndex = getHistoryXor(pc, oldHistory);
         bool prediction = getPrediction(pc, NULL);
+        
+        // For empty/different branch in BTB entry:
+        if (!branchLine.isValid() || oldTag != newBranchTag) {
+            branchLine.updateBranchTag(newBranchTag);
+            branchLine.updateBranchTarget(targetPc);
+            branchLine.updateValid(true);
+            if (!isGlobalHist) {
+                branchLine.getBranchHistory().reset();
+            }
+            branchLine.updateBranchHistory(taken);
+            if (!isGlobalTable) {
+                branchLine.getStateMachinesVec().reset();
+            }
+            branchLine.updateBranchStateMachine(oldStateIndex, taken);
+            return;
+        }   // valid with same tag:
+        else if (oldTarget == targetPc) {   // same target
+            branchLine.updateBranchHistory(taken);
+            branchLine.updateBranchStateMachine(oldStateIndex, taken);
+            if (prediction != taken) {  // misspredistion
+                missPredictedCounter++;
+            }
+        }
+        else { // different target
+            missPredictedCounter++;
+            branchLine.updateBranchTarget(targetPc);
+            branchLine.updateBranchHistory(taken);
+            branchLine.updateBranchStateMachine(oldStateIndex, taken);
+        }        
     }
 	
-	
-	
-	
-    //Remah targetSize=30, not 32.
-    //Remah Lshare and Gshare do not affect the size!
     void getStats(SIM_stats *currStats){
         currStats->br_num=branchesCounter;
         currStats->flush_num=missPredictedCounter;
-        unsigned targetSize=30,validSize=1;
+        unsigned targetSize=32,validSize=1;
         unsigned stateMachinesVecSize=std::pow(2,historySize+1);
         unsigned size=btbSize*(tagSize+targetSize+validSize);
         size+=((isGlobalHist) ? historySize : btbSize*historySize );
@@ -441,8 +465,9 @@ int main1() {
 }
 */
 
-//Mor
+
 BTB main_BP;
+
 
 int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState,
             bool isGlobalHist, bool isGlobalTable, int Shared){
@@ -456,11 +481,11 @@ bool BP_predict(uint32_t pc, uint32_t *dst){
 }
 
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst){
-
+    main_BP.updateBtbOnExe(pc, targetPc, taken, pred_dst);
     return;
 }
 
 void BP_GetStats(SIM_stats *curStats){
-    return;
+    return main_BP.getStats(curStats);
 }
 
