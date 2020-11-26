@@ -287,9 +287,10 @@ public:
         if(branchLine.getTag()==tag && branchLine.isValid()){
             uint32_t target=branchLine.getTarget();
             // Mor: pass 1 history?
-            uint8_t history= branchLine.getBranchHistory().getHistory();
-            // Mor: need to add share 
-            State branchState=branchLine.getStateMachinesVec().getStateAtIndex(history);
+            //uint8_t history= branchLine.getBranchHistory().getHistory();
+            History history = branchLine.getBranchHistory();
+            uint8_t stateIndex = getHistoryXor(pc, history);
+            State branchState=branchLine.getStateMachinesVec().getStateAtIndex(stateIndex);
             if (branchState==ST || branchState==WT){
                 *dst=target;
                 return true;
@@ -299,23 +300,26 @@ public:
         return false;
     }
 
-    uint8_t getHistoryXor(uint8_t history, ShareMode shareMode) {
+    uint8_t getHistoryXor(uint32_t pc, History history) {
+        uint8_t tmpIndex = history.getHistory();
         switch (shareMode){
         case not_using_share:
-            return history;
+            return tmpIndex;
             break;
         case using_share_lsb:
-            shareMode;
-
-
+            pc >>= 2;
+            tmpIndex ^= pc;
+            tmpIndex %= (uint8_t)(pow(2, history.getSize());
+            return tmpIndex;
             break;
         case using_share_mid:
-            shareMode;
-
-
+            pc >>= 16;
+            tmpIndex ^= pc;
+            tmpIndex %= (uint8_t)(pow(2, history.getSize());
+            return tmpIndex;
             break;
         default:
-            return history;
+            return history.getHistory();
             break;
         }
     }
