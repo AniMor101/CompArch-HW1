@@ -6,6 +6,7 @@
 #include <math.h>
 #include <bitset>
 #include "bp_api.h"
+#include <cmath>
 /* 046267 Computer Architecture - Winter 20/21 - HW #1                  */
 /* This file should hold your implementation of the predictor simulator */
 
@@ -184,10 +185,10 @@ public:
     uint32_t getTarget(){
         return target;
     }
-    History getBranchHistory(){
+    History& getBranchHistory(){
         return *historyP;
     }
-    StateMachinesVector getStateMachinesVec(){
+    StateMachinesVector& getStateMachinesVec(){
         return *stateMachinesVectorP;
     }
     void updateBranchStateMachine(unsigned index, bool taken) {
@@ -421,7 +422,9 @@ public:
         if (branchLine.isValid()) { // Taken line in BTB
             if (newTag != oldTag) { // Different branch
                 if (!isGlobalHist) branchLine.getBranchHistory().reset();
+                //if (!isGlobalHist) branchesVec->operator[](BranchIndex).getBranchHistoryP()->reset();
                 if (!isGlobalTable) branchLine.getStateMachinesVec().reset();
+                //if (!isGlobalTable) branchesVec->operator[](BranchIndex).getStateMachinesVecP()->reset();
                 branchLine.updateBranchTag(newTag);
                 branchLine.updateBranchTarget(targetPc);
             }
