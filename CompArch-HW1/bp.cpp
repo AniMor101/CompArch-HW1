@@ -422,19 +422,14 @@ public:
             if (newTag != oldTag) { // Different branch
                 if (!isGlobalHist) branchLine.getBranchHistory().reset();
                 if (!isGlobalTable) branchLine.getStateMachinesVec().reset();
-                newStateIndex = getHistoryXor(pc, branchLine.getBranchHistory());
                 branchLine.updateBranchTag(newTag);
                 branchLine.updateBranchTarget(targetPc);
-                branchLine.updateBranchHistory(taken);
-                branchLine.updateBranchStateMachine(newStateIndex, taken);
             }
         }
         else {  // Empty line in BTB
-            newStateIndex = getHistoryXor(pc, branchLine.getBranchHistory());
             branchLine.updateBranchTag(newTag);
             branchLine.updateBranchTarget(targetPc);
-            branchLine.updateBranchHistory(taken);
-            branchLine.updateBranchStateMachine(newStateIndex, taken);
+            branchLine.updateValid(true); // Mor WOW!!!
         }
 
         if (oldTarget == pred_dst) { // Same branch made the prediction
