@@ -20,7 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bp.cpp" />
-    <ClCompile Include="bp_main.c" />
+    <ClCompile Include="bp_main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bp_api.h" />

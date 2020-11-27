@@ -338,3 +338,5 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+/CompArch-HW1/input_examples
+/CompArch-HW1/outputs
