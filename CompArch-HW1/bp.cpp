@@ -1,6 +1,8 @@
-//
-// Created by khour on 24/11/2020.
-//
+//***************************************************************
+//* File name    : bp.cpp
+//* Description  : implementation of the predictor simulator
+//***************************************************************
+
 #include <iostream>
 #include <vector>
 #include <math.h>
@@ -23,12 +25,16 @@ typedef enum {
     using_share_mid
 }ShareMode;
 
+//***************************************************************
+//* Class name   : StateMachine
+//* Description  : 
+//***************************************************************
 class StateMachine{
 private:
     State state;
     State defaultState;
-    //privateMethods:
-    State updateStateTaken(){
+    // privateMethods:
+    void updateStateTaken(){
         switch (state) {
             case SNT:
                 state=WNT;
@@ -42,9 +48,8 @@ private:
             default:
                 break;
         }
-        return state;
     }
-    State updateStateNotTaken(){
+    void updateStateNotTaken(){
         switch (state) {
             case ST:
                 state=WT;
@@ -58,58 +63,56 @@ private:
             default:
                 break;
         }
-        return state;
     }
 
 public:
-    //constructors:
+    // constructors:
     StateMachine(State state1){
         state=state1;
         defaultState = state1;
     }
-    //methods
+    // methods
+    // Getters:
     State getState(){
         return state;
     }
-    State updateState(bool taken){
-        if(taken){
-            return updateStateTaken();
-        }
-        return updateStateNotTaken();
+    // Setters:
+    void updateState(bool taken){
+        if(taken)  updateStateTaken();
+        else updateStateNotTaken();
     }
-    // Mor
     void reset(){
         state = defaultState;
     };
 };
 
+//***************************************************************
+//* Class name   : StateMachinesVector
+//* Description  : 
+//***************************************************************
 class StateMachinesVector{
 private:
     std::vector<StateMachine> stateMachines;
     unsigned size;
 
 public:
-    //constructors:
-    // Mor: not needed?
-    //StateMachinesVector(){}
-    //StateMachinesVector(unsigned size){
-    //    stateMachines= std::vector<StateMachine>(size,SNT);
-    //}
+    // constructors:
     StateMachinesVector(unsigned size1,State state){
         stateMachines= std::vector<StateMachine>(size1,state);
         size=size1;
     }
-    //methods:
+    // methods:
+    // Getters:
     State getStateAtIndex(unsigned index){
         return stateMachines.at(index).getState();
     }
     unsigned getSize(){
         return size;
     }
-    State updateStateAtIndex(unsigned  index,bool taken){
-        return stateMachines.at(index).updateState(taken);
+    // Setters:
+    void updateStateAtIndex(unsigned index, bool taken){
+        stateMachines.at(index).updateState(taken);
     }
-    // Mor
     void reset(){
         for (auto machine : stateMachines) {
             machine.reset();
@@ -117,37 +120,45 @@ public:
     };
 };
 
+//***************************************************************
+//* Class name   : History
+//* Description  : 
+//***************************************************************
 class History{
 private:
     uint8_t history;
     unsigned size;
+
 public:
-    //constructor:
+    // constructor:
     History(unsigned size1=0){
         history=0x0;
         size=size1;
     }
-    //methods:
+    // methods:
+    // Getters:
     uint8_t getHistory(){
         return history;
     }
     unsigned getSize(){
         return size;
     }
-    // Mor: history not updated?
-    uint8_t updateHistory(bool taken){
+    // Setters:
+    void updateHistory(bool taken){
         uint32_t pow=std::pow(2,size-1);
         history%=pow;
         history= (history*2) ;
         history += (uint8_t)taken;
-        return history;
     }
-    // Mor
     void reset(){
         history = 0x0;
     };
 };
 
+//***************************************************************
+//* Class name   : BranchLine
+//* Description  : 
+//***************************************************************
 class BranchLine{
 private:
     uint32_t tag;
@@ -157,8 +168,7 @@ private:
     StateMachinesVector* stateMachinesVectorP;
 
 public:
-    //Constructors:
-
+    // Constructors:
     BranchLine(uint32_t tag1=0x0,uint32_t target1=0x0,bool valid1=false){
         tag=tag1;
         target=target1;
@@ -166,18 +176,14 @@ public:
         historyP = NULL;
         stateMachinesVectorP = NULL;
     }
-    void initHistoryAndStateMachineVect(History* history1,StateMachinesVector* stateMachinesVector1){
-        historyP=history1;
-        stateMachinesVectorP=stateMachinesVector1;
-    }
+    // init methods:
     void initHistory(History* history1){
         historyP=history1;
-
     }
     void initStateMachineVect(StateMachinesVector* stateMachinesVector1){
         stateMachinesVectorP=stateMachinesVector1;
     }
-
+    // Getters:
     uint32_t getTag(){
         return tag;
     }
@@ -190,32 +196,31 @@ public:
     StateMachinesVector& getStateMachinesVec(){
         return *stateMachinesVectorP;
     }
-    void updateBranchStateMachine(unsigned index, bool taken) {
-        stateMachinesVectorP->updateStateAtIndex(index, taken);
-    }
-
     bool isValid(){
         return valid;
     }
-
-    History updateBranchHistory(bool taken){
-        return historyP->updateHistory(taken);
+    // Setters:
+    void updateBranchStateMachine(unsigned index, bool taken) {
+        stateMachinesVectorP->updateStateAtIndex(index, taken);
     }
-    uint32_t updateBranchTarget(uint32_t target1){
+    void updateBranchHistory(bool taken){
+        historyP->updateHistory(taken);
+    }
+    void updateBranchTarget(uint32_t target1){
         target=target1;
-        return target;
     }
     void updateBranchTag(uint32_t tag1) {
         tag = tag1;
     }
-
-    bool updateValid(bool valid1){
+    void updateValid(bool valid1){
         valid=valid1;
-        return valid;
     }
-
 };
 
+//***************************************************************
+//* Class name   : BTB
+//* Description  : 
+//***************************************************************
 class BTB{
 private:
     unsigned btbSize;
@@ -235,7 +240,7 @@ private:
     unsigned branchesCounter;
     unsigned missPredictedCounter;
 public:
-    //constructors:
+    // constructors:
     BTB()=default;
     BTB(unsigned btbSize1,unsigned historySize1,unsigned tagSize1,unsigned fsmState1
             ,bool isGlobalHist1,bool isGlobalTable1,int isShare1){
@@ -287,36 +292,12 @@ public:
             //branchesVec->operator[](i).initHistoryAndStateMachineVect(hist,statesTable);
         }
     }
-
+    // Getters:
     unsigned getIndexFromPc(uint32_t pc){
         return ((pc)%(4*btbSize))/4;
     }
     uint32_t getTagFromPc(uint32_t pc){
         return (uint32_t)((pc)/(4*btbSize))%(uint32_t)(pow(2,tagSize));
-    }
-    bool getPrediction(uint32_t pc, uint32_t *dst){
-        unsigned index= getIndexFromPc(pc);
-        uint32_t tag=getTagFromPc(pc);
-        BranchLine branchLine=branchesVec->operator[](index);
-
-        if(branchLine.getTag()==tag && branchLine.isValid()){
-            uint32_t target=branchLine.getTarget();
-            History history = branchLine.getBranchHistory();
-            uint8_t stateIndex = getHistoryXor(pc, history);
-            State branchState=branchLine.getStateMachinesVec().getStateAtIndex(stateIndex);
-            if (branchState==ST || branchState==WT){
-                //if(dst!=NULL){
-                //    *dst=target;
-                //}
-                *dst = target;
-                return true;
-            }
-        }
-        //if(dst!=NULL){
-        //    *dst=pc+4;
-        //}
-        *dst = pc + 4;
-        return false;
     }
 
     uint8_t getHistoryXor(uint32_t pc, History history) {
@@ -340,11 +321,48 @@ public:
         }
     }
 
+    void getStats(SIM_stats* currStats) {
+        currStats->br_num = branchesCounter;
+        currStats->flush_num = missPredictedCounter;
+        unsigned targetSize = 30, validSize = 1;
+        unsigned stateMachinesVecSize = std::pow(2, historySize + 1);
+        unsigned size = btbSize * (tagSize + targetSize + validSize);
+        size += ((isGlobalHist) ? historySize : btbSize * historySize);
+        size += ((isGlobalTable) ? stateMachinesVecSize : btbSize * stateMachinesVecSize);
+        currStats->size = size;
+    }
+
+    bool getPrediction(uint32_t pc, uint32_t* dst) {
+        unsigned index = getIndexFromPc(pc);
+        uint32_t tag = getTagFromPc(pc);
+        BranchLine branchLine = branchesVec->operator[](index);
+
+        if (branchLine.getTag() == tag && branchLine.isValid()) {
+            uint32_t target = branchLine.getTarget();
+            History history = branchLine.getBranchHistory();
+            uint8_t stateIndex = getHistoryXor(pc, history);
+            State branchState = branchLine.getStateMachinesVec().getStateAtIndex(stateIndex);
+            if (branchState == ST || branchState == WT) {
+                //if(dst!=NULL){
+                //    *dst=target;
+                //}
+                *dst = target;
+                return true;
+            }
+        }
+        //if(dst!=NULL){
+        //    *dst=pc+4;
+        //}
+        *dst = pc + 4;
+        return false;
+    }
+
+    // Setters:
     void updateBtbOnExe(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
         unsigned BranchIndex = getIndexFromPc(pc);
         uint32_t newTag = getTagFromPc(pc);
         BranchLine& branchLine = branchesVec->operator[](BranchIndex);
-        History oldHistory = branchLine.getBranchHistory();
+        //History oldHistory = branchLine.getBranchHistory();
         uint32_t oldTag = branchLine.getTag();
         uint32_t oldTarget = branchLine.getTarget();
         uint8_t StateIndex;
@@ -355,41 +373,40 @@ public:
                 if (!isGlobalHist) branchLine.getBranchHistory().reset();
                 if (!isGlobalTable) branchLine.getStateMachinesVec().reset();
                 branchLine.updateBranchTag(newTag);
+                //branchLine.updateBranchTarget(targetPc);
             }
         }
         else {  // Empty line in BTB
             branchLine.updateBranchTag(newTag);
-            branchLine.updateValid(true); // Mor WOW!!!
+            //branchLine.updateBranchTarget(targetPc);
+            branchLine.updateValid(true);
+            //StateIndex = getHistoryXor(pc, branchLine.getBranchHistory());
+            //branchLine.updateBranchHistory(taken);
+            //branchLine.updateBranchStateMachine(StateIndex, taken);
+            //return;
         }
 
-        if (oldTarget == pred_dst) { // Same branch made the prediction
-            if ((oldTarget != targetPc) && taken) missPredictedCounter++;
-            if (!taken) missPredictedCounter++;
-        }
+        //oldTag = branchLine.getTag();
+        //oldTarget = branchLine.getTarget();
+        //
+        // Same branch made the prediction
+        //if (oldTarget == pred_dst) {
+        //    if ((oldTarget != targetPc) && taken) missPredictedCounter++;
+        //    if (!taken) missPredictedCounter++;
+        //}
 
-        // Different branch made the prediction
-        if ((oldTarget != pred_dst) && taken) {
-            missPredictedCounter++;
-            branchLine.updateBranchTarget(targetPc);
-        }
+        //// Different branch made the prediction
+        //if ((oldTarget != pred_dst) && taken) {
+        //    missPredictedCounter++;
+        //}
+
+        if (taken && (targetPc != pred_dst)) missPredictedCounter++;
+        if (!taken && (pred_dst != pc + 4)) missPredictedCounter++;
         
         StateIndex = getHistoryXor(pc, branchLine.getBranchHistory());
         branchLine.updateBranchHistory(taken);
         branchLine.updateBranchStateMachine(StateIndex, taken);
-        //branchLine.updateBranchTarget(targetPc);
-        if (taken) branchLine.updateBranchTarget(targetPc);
-    }
-
-
-    void getStats(SIM_stats *currStats){
-        currStats->br_num=branchesCounter;
-        currStats->flush_num=missPredictedCounter;
-        unsigned targetSize=30,validSize=1;
-        unsigned stateMachinesVecSize=std::pow(2,historySize+1);
-        unsigned size=btbSize*(tagSize+targetSize+validSize);
-        size+=((isGlobalHist) ? historySize : btbSize*historySize );
-        size+=((isGlobalTable) ? stateMachinesVecSize : btbSize*stateMachinesVecSize);
-        currStats->size=size;
+        branchLine.updateBranchTarget(targetPc);
     }
 };
 
