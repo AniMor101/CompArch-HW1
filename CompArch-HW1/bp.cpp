@@ -91,7 +91,7 @@ private:
 public:
     //constructors:
     // Mor: not needed?
-    StateMachinesVector(){}
+    //StateMachinesVector(){}
     //StateMachinesVector(unsigned size){
     //    stateMachines= std::vector<StateMachine>(size,SNT);
     //}
@@ -137,7 +137,7 @@ public:
     // Mor: history not updated?
     uint8_t updateHistory(bool taken){
         int sizeee=size-1;
-        uint8_t pow=std::pow(2,size-1);
+        uint32_t pow=std::pow(2,size-1);
         history%=pow;
         history= (history*2) ;
         history += (uint8_t)taken;
@@ -249,6 +249,10 @@ public:
         shareMode = (ShareMode)isShare1;
         branchesCounter=0;
         missPredictedCounter=0;
+        globalHistory = NULL;
+        globalStateMachineVec = NULL;
+        localHistoryVec = NULL;
+        localStateMachinesVec = NULL;
 
 /*
         :globalHistory(historySize1),localHistoryVec(btbSize1,History(historySize1))
@@ -276,24 +280,16 @@ public:
              //       ,StateMachinesVector(std::pow(2,historySize),(State)fsmState));
         }
         branchesVec=new std::vector<BranchLine>(btbSize);
-        History *hist;
-        StateMachinesVector *statesTable;
         for(unsigned i=0 ; i<btbSize ;i++){
             if(isGlobalHist){
                 branchesVec->operator[](i).initHistory(globalHistory);
-                //branchesVec[i].initHistory(&globalHistory);
-               // hist=globalHistory;
             }else{
-
                 branchesVec->operator[](i).initHistory(&(localHistoryVec->at(i)));
-               // hist=localHistoryVec[i];
             }
             if(isGlobalTable){
                 branchesVec->operator[](i).initStateMachineVect(globalStateMachineVec);
-                statesTable=globalStateMachineVec;
             }else{
                 branchesVec->operator[](i).initStateMachineVect(&localStateMachinesVec->at(i));
-                //statesTable=localStateMachinesVec[i];
             }
             //branchesVec->operator[](i).initHistoryAndStateMachineVect(hist,statesTable);
         }
@@ -349,62 +345,12 @@ public:
                 pc >>= 16;
                 tmpIndex ^= pc;
 
-                tmpIndex %= (uint8_t)(pow);
+                tmpIndex %= (uint32_t)(pow);
                 return tmpIndex;
                 break;
             default:
                 return history.getHistory();
                 break;
-        }
-    }
-
-
-    void updateBtbOnExe_old(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst){
-        branchesCounter++;
-        unsigned newBranchIndex = getIndexFromPc(pc);
-        uint32_t newBranchTag = getTagFromPc(pc);
-
-        //BranchLine branchLine=branchesVec->at(newBranchIndex);
-        BranchLine &branchLine = branchesVec->operator[](newBranchIndex);
-        History oldHistory = branchLine.getBranchHistory();
-        uint32_t oldTag = branchLine.getTag();
-        uint32_t oldTarget = pred_dst;
-        uint8_t oldStateIndex = getHistoryXor(pc, oldHistory);
-        bool prediction = getPrediction(pc, NULL);
-
-        // For empty/different branch in BTB entry:
-        if (!branchLine.isValid() || oldTag != newBranchTag) {
-            branchLine.updateBranchTag(newBranchTag);
-            branchLine.updateBranchTarget(targetPc);
-            branchLine.updateValid(true);
-            if (!isGlobalHist) {
-                branchLine.getBranchHistory().reset();
-            }
-            branchLine.updateBranchHistory(taken);
-            if (!isGlobalTable) {
-                branchLine.getStateMachinesVec().reset();
-            }
-            branchLine.updateBranchStateMachine(oldStateIndex, taken);
-            return;
-        }   // valid with same tag:
-
-        else if ( taken && oldTarget == targetPc) {   // same target
-            branchLine.updateBranchHistory(taken);
-            branchLine.updateBranchStateMachine(oldStateIndex, taken);
-            if (prediction != taken) {  // misspredistion
-                missPredictedCounter++;
-            }
-        }
-        else if( taken && oldTarget != targetPc) { // different target
-            missPredictedCounter++;
-            branchLine.updateBranchTarget(targetPc);
-            branchLine.updateBranchHistory(taken);
-            branchLine.updateBranchStateMachine(oldStateIndex, taken);
-        }else {//not taken && prediction is wrong (prediction=taken)
-            missPredictedCounter++;
-            branchLine.updateBranchTarget(pc+4);
-            branchLine.updateBranchHistory(taken);
-            branchLine.updateBranchStateMachine(oldStateIndex, taken);
         }
     }
 
@@ -422,16 +368,12 @@ public:
         if (branchLine.isValid()) { // Taken line in BTB
             if (newTag != oldTag) { // Different branch
                 if (!isGlobalHist) branchLine.getBranchHistory().reset();
-                //if (!isGlobalHist) branchesVec->operator[](BranchIndex).getBranchHistoryP()->reset();
                 if (!isGlobalTable) branchLine.getStateMachinesVec().reset();
-                //if (!isGlobalTable) branchesVec->operator[](BranchIndex).getStateMachinesVecP()->reset();
                 branchLine.updateBranchTag(newTag);
-                branchLine.updateBranchTarget(targetPc);
             }
         }
         else {  // Empty line in BTB
             branchLine.updateBranchTag(newTag);
-            branchLine.updateBranchTarget(targetPc);
             branchLine.updateValid(true); // Mor WOW!!!
         }
 
@@ -446,6 +388,7 @@ public:
         StateIndex = getHistoryXor(pc, branchLine.getBranchHistory());
         branchLine.updateBranchHistory(taken);
         branchLine.updateBranchStateMachine(StateIndex, taken);
+        branchLine.updateBranchTarget(targetPc);
     }
 
 
