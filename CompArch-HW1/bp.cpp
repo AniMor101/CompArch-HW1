@@ -370,7 +370,7 @@ public:
         // Different branch made the prediction
         if ((oldTarget != pred_dst) && taken) {
             missPredictedCounter++;
-            //branchLine.updateBranchTarget(targetPc);
+            branchLine.updateBranchTarget(targetPc);
         }
         
         StateIndex = getHistoryXor(pc, branchLine.getBranchHistory());
@@ -378,7 +378,6 @@ public:
         branchLine.updateBranchStateMachine(StateIndex, taken);
         //branchLine.updateBranchTarget(targetPc);
         if (taken) branchLine.updateBranchTarget(targetPc);
-        else branchLine.updateBranchTarget(pc+4);
     }
 
 
