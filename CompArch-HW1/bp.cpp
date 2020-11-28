@@ -114,7 +114,7 @@ public:
         stateMachines.at(index).updateState(taken);
     }
     void reset(){
-        for (auto machine : stateMachines) {
+        for (auto &machine : stateMachines) {
             machine.reset();
         }
     };
@@ -343,16 +343,10 @@ public:
             uint8_t stateIndex = getHistoryXor(pc, history);
             State branchState = branchLine.getStateMachinesVec().getStateAtIndex(stateIndex);
             if (branchState == ST || branchState == WT) {
-                //if(dst!=NULL){
-                //    *dst=target;
-                //}
                 *dst = target;
                 return true;
             }
         }
-        //if(dst!=NULL){
-        //    *dst=pc+4;
-        //}
         *dst = pc + 4;
         return false;
     }
@@ -362,10 +356,7 @@ public:
         unsigned BranchIndex = getIndexFromPc(pc);
         uint32_t newTag = getTagFromPc(pc);
         BranchLine& branchLine = branchesVec->operator[](BranchIndex);
-        //History oldHistory = branchLine.getBranchHistory();
         uint32_t oldTag = branchLine.getTag();
-        uint32_t oldTarget = branchLine.getTarget();
-        uint8_t StateIndex;
 
         branchesCounter++;
         if (branchLine.isValid()) { // Taken line in BTB
@@ -373,138 +364,24 @@ public:
                 if (!isGlobalHist) branchLine.getBranchHistory().reset();
                 if (!isGlobalTable) branchLine.getStateMachinesVec().reset();
                 branchLine.updateBranchTag(newTag);
-                //branchLine.updateBranchTarget(targetPc);
             }
         }
         else {  // Empty line in BTB
             branchLine.updateBranchTag(newTag);
-            //branchLine.updateBranchTarget(targetPc);
             branchLine.updateValid(true);
-            //StateIndex = getHistoryXor(pc, branchLine.getBranchHistory());
-            //branchLine.updateBranchHistory(taken);
-            //branchLine.updateBranchStateMachine(StateIndex, taken);
-            //return;
         }
 
-        //oldTag = branchLine.getTag();
-        //oldTarget = branchLine.getTarget();
-        //
-        // Same branch made the prediction
-        //if (oldTarget == pred_dst) {
-        //    if ((oldTarget != targetPc) && taken) missPredictedCounter++;
-        //    if (!taken) missPredictedCounter++;
-        //}
-
-        //// Different branch made the prediction
-        //if ((oldTarget != pred_dst) && taken) {
-        //    missPredictedCounter++;
-        //}
-
-        if (taken && (targetPc != pred_dst)) missPredictedCounter++;
+        if (taken && (pred_dst != targetPc)) missPredictedCounter++;
         if (!taken && (pred_dst != pc + 4)) missPredictedCounter++;
         
-        StateIndex = getHistoryXor(pc, branchLine.getBranchHistory());
+        branchLine.updateBranchTarget(targetPc);
+        uint8_t StateIndex = getHistoryXor(pc, branchLine.getBranchHistory());
         branchLine.updateBranchHistory(taken);
         branchLine.updateBranchStateMachine(StateIndex, taken);
-        branchLine.updateBranchTarget(targetPc);
     }
 };
 
-/*
-//branch main
-int main() {
-    std::cout << "Hello, World! 1 " << std::endl;
-    StateMachine machine =StateMachine(SNT);
-    std::cout << machine.getState() << std::endl;
-    std::cout << "Taken:" << std::endl;
-    for (int i=0 ;i<=5 ; i++){
-        std::cout << machine.updateState(true) << std::endl;
-    }
-    std::cout << "Not taken:" << std::endl;
-    for (int i=0 ;i<=5 ; i++){
-        std::cout << machine.updateState(false) << std::endl;
-    }
-
-    return 0;
-}
-//history main
-int main3() {
-    std::cout << "Hello, World! 3 " << std::endl;
-    History history1=History(4);
-    std::cout << unsigned(history1.getHistory())<< std::endl;
-    std::cout << unsigned(history1.updateHistory(true))<< std::endl;
-    std::cout << unsigned(history1.updateHistory(false)) << std::endl;
-    std::cout << unsigned(history1.updateHistory(true)) << std::endl;
-    std::cout << unsigned(history1.updateHistory(false)) << std::endl;
-    std::cout << unsigned(history1.updateHistory(true)) << std::endl;
-    std::cout << unsigned(history1.updateHistory(true)) << std::endl;
-    std::cout << unsigned(history1.updateHistory(true)) << std::endl;
-    std::cout << unsigned(history1.updateHistory(false)) << std::endl;
-    std::cout << unsigned(history1.updateHistory(false)) << std::endl;
-    std::cout << unsigned(history1.updateHistory(false)) << std::endl;
-    std::string binary = std::bitset<8>(history1.getHistory()).to_string();
-    std::cout << binary << std::endl;
-
-
-    return 0;
-}
-//StateMachinesVector main
-int main2() {
-    std::cout << "Hello, World! 2 " << std::endl;
-    StateMachinesVector vec=StateMachinesVector(5);
-
-    for (int i=0 ;i<=4 ; i++){
-        std::cout << vec.getStateAtIndex(i)<<" " ;
-    }
-    std::cout << std::endl;
-
-
-    std::cout<<vec.updateStateAtIndex(3,true)<<" ";
-    std::cout << std::endl;
-    std::cout<<vec.updateStateAtIndex(3,true)<<" ";
-    std::cout << std::endl;
-    std::cout<<vec.updateStateAtIndex(2,true)<<" ";
-    std::cout << std::endl;
-    std::cout<<vec.updateStateAtIndex(3,true)<<" ";
-    std::cout << std::endl;
-    std::cout<<vec.updateStateAtIndex(3,false)<<" ";
-    std::cout << std::endl;
-    std::cout<<vec.updateStateAtIndex(3,false)<<" ";
-    std::cout << std::endl;
-    std::cout<<vec.updateStateAtIndex(3,false)<<" ";
-    std::cout << std::endl;
-    std::cout<<vec.updateStateAtIndex(2,false)<<" ";
-    std::cout << std::endl;
-
-    for (int i=0 ;i<=4 ; i++){
-        std::cout << vec.getStateAtIndex(i)<<" " ;
-    }
-    std::cout << std::endl;
-
-
-    return 0;
-}
-//StateMachineCheck main
-int main1() {
-    std::cout << "Hello, World! 1 " << std::endl;
-    StateMachine machine =StateMachine(SNT);
-    std::cout << machine.getState() << std::endl;
-    std::cout << "Taken:" << std::endl;
-    for (int i=0 ;i<=5 ; i++){
-        std::cout << machine.updateState(true) << std::endl;
-    }
-    std::cout << "Not taken:" << std::endl;
-    for (int i=0 ;i<=5 ; i++){
-        std::cout << machine.updateState(false) << std::endl;
-    }
-
-    return 0;
-}
-*/
-
-
 BTB *main_BP;
-
 
 int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState,
             bool isGlobalHist, bool isGlobalTable, int Shared){
