@@ -1,14 +1,19 @@
 #!/bin/bash
 
+fails=0;
 
-for (( c=1; c<=75; c++ ))
+for (( c=1; c<=150; c++ ))
 do
 
   ./bp_main tests/test$c.trc > tests/test$c.myout
   if (( `diff tests/test$c.out  tests/test$c.myout | wc -l` == 0 )); then
-    echo "success  $c" 
+    echo -e "\e[0msuccess  $c    -----   "  `cat tests/test$c.trc | head -n 1`
+		
   else
-    echo "failure  $c"
-    #cat tests/test$c.trc | head -n 1
+    echo -e "\e[7mfailure  $c              -------"     `cat tests/test$c.trc | head -n 1`
+    ((fails=fails+1))
+    
   fi
 done
+
+echo -e "\e[7m <<< Fail-Rate: $fails/150 >>>"
