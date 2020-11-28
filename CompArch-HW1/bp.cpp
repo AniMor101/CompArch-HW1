@@ -136,7 +136,6 @@ public:
     }
     // Mor: history not updated?
     uint8_t updateHistory(bool taken){
-        int sizeee=size-1;
         uint32_t pow=std::pow(2,size-1);
         history%=pow;
         history= (history*2) ;
@@ -254,13 +253,6 @@ public:
         localHistoryVec = NULL;
         localStateMachinesVec = NULL;
 
-/*
-        :globalHistory(historySize1),localHistoryVec(btbSize1,History(historySize1))
-                ,globalStateMachineVec(std::pow(2,historySize1),(State)fsmState1)
-                ,localStateMachinesVec(btbSize1
-                        ,StateMachinesVector(std::pow(2,historySize1),(State)fsmState1))
-                ,branchesVec(btbSize1)*/
-        //BTB * main_BP = new BTB(btbSize, historySize, tagSize, fsmState, isGlobalHist, isGlobalTable, Shared);
         if(isGlobalHist){
             globalHistory=new History(historySize);
             //globalHistory=History(historySize);
@@ -280,6 +272,7 @@ public:
              //       ,StateMachinesVector(std::pow(2,historySize),(State)fsmState));
         }
         branchesVec=new std::vector<BranchLine>(btbSize);
+        
         for(unsigned i=0 ; i<btbSize ;i++){
             if(isGlobalHist){
                 branchesVec->operator[](i).initHistory(globalHistory);
@@ -304,26 +297,25 @@ public:
     bool getPrediction(uint32_t pc, uint32_t *dst){
         unsigned index= getIndexFromPc(pc);
         uint32_t tag=getTagFromPc(pc);
-
         BranchLine branchLine=branchesVec->operator[](index);
+
         if(branchLine.getTag()==tag && branchLine.isValid()){
             uint32_t target=branchLine.getTarget();
-            // Mor: pass 1 history?
-            //uint8_t history= branchLine.getBranchHistory().getHistory();
             History history = branchLine.getBranchHistory();
             uint8_t stateIndex = getHistoryXor(pc, history);
             State branchState=branchLine.getStateMachinesVec().getStateAtIndex(stateIndex);
             if (branchState==ST || branchState==WT){
-                if(dst!=NULL){//Remah
-                    *dst=target;
-                }
-
+                //if(dst!=NULL){
+                //    *dst=target;
+                //}
+                *dst = target;
                 return true;
             }
         }
-        if(dst!=NULL){//Remah
-            *dst=pc+4;
-        }
+        //if(dst!=NULL){
+        //    *dst=pc+4;
+        //}
+        *dst = pc + 4;
         return false;
     }
 
@@ -333,31 +325,24 @@ public:
         switch (shareMode){
             case not_using_share:
                 return tmpIndex;
-                break;
             case using_share_lsb:
                 pc >>= 2;
                 tmpIndex ^= pc;
-
                 tmpIndex %= (uint32_t)(pow);
                 return tmpIndex;
-                break;
             case using_share_mid:
                 pc >>= 16;
                 tmpIndex ^= pc;
-
                 tmpIndex %= (uint32_t)(pow);
                 return tmpIndex;
-                break;
             default:
-                return history.getHistory();
-                break;
+                return tmpIndex;
         }
     }
 
     void updateBtbOnExe(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst) {
         unsigned BranchIndex = getIndexFromPc(pc);
         uint32_t newTag = getTagFromPc(pc);
-        uint8_t newStateIndex;
         BranchLine& branchLine = branchesVec->operator[](BranchIndex);
         History oldHistory = branchLine.getBranchHistory();
         uint32_t oldTag = branchLine.getTag();
@@ -383,12 +368,17 @@ public:
         }
 
         // Different branch made the prediction
-        if ((oldTarget != pred_dst) && taken) missPredictedCounter++;
+        if ((oldTarget != pred_dst) && taken) {
+            missPredictedCounter++;
+            //branchLine.updateBranchTarget(targetPc);
+        }
         
         StateIndex = getHistoryXor(pc, branchLine.getBranchHistory());
         branchLine.updateBranchHistory(taken);
         branchLine.updateBranchStateMachine(StateIndex, taken);
-        branchLine.updateBranchTarget(targetPc);
+        //branchLine.updateBranchTarget(targetPc);
+        if (taken) branchLine.updateBranchTarget(targetPc);
+        else branchLine.updateBranchTarget(pc+4);
     }
 
 
@@ -518,7 +508,7 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst){
 
 void BP_GetStats(SIM_stats *curStats){
     main_BP->getStats(curStats);
-    delete main_BP; // Mor
+    delete main_BP;
     return;
 }
 
